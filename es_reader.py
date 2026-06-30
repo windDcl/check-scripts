@@ -240,6 +240,49 @@ def cmd_stats(args, es):
         print(f"存储大小: {indices.get('store', {}).get('size_in_bytes', 0) / 1024 / 1024:.2f} MB")
 
 
+def get_alarm_count(es, index_a, index_b, rulename):
+    """
+    查询两个索引中指定 rulename 最近24小时的最新 alarm_count
+
+    Args:
+        es: ESClient 实例
+        index_a: 第一个索引名
+        index_b: 第二个索引名
+        rulename: rulename 匹配值
+
+    Returns:
+        dict: {
+            index_a: {"alarm_count": int/None, "occur_time": str/None},
+            index_b: {"alarm_count": int/None, "occur_time": str/None},
+        }
+    """
+    results = {}
+    for idx in (index_a, index_b):
+        body = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"term": {"rulename": rulename}},
+                        {"range": {"occur_time": {"gte": "now-1d", "lte": "now"}}},
+                    ]
+                }
+            },
+            "sort": [{"occur_time": {"order": "desc"}}],
+            "size": 1,
+        }
+        data = es.search(idx, body=body, size=1)
+        hits = data.get("hits", {}).get("hits", [])
+        if hits:
+            src = hits[0].get("_source", {})
+            results[idx] = {
+                "alarm_count": src.get("alarm_count"),
+                "occur_time": src.get("occur_time"),
+            }
+        else:
+            results[idx] = {"alarm_count": None, "occur_time": None}
+    return results
+
+
 def cmd_export(args, es):
     """导出索引数据到 JSON 文件"""
     body = None
