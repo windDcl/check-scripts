@@ -43,13 +43,20 @@ def main():
     parser.add_argument("--csv", required=True, help="CSV file path (columns: rule_id_a, rule_id_b)")
     parser.add_argument("--es", default=DEFAULT_ES, help=f"ES host (default: {DEFAULT_ES})")
     parser.add_argument("--user", default="elastic", help="ES username (default: elastic)")
-    parser.add_argument("--pass", dest="password", default="", help="ES password")
+    parser.add_argument("--pass-env", dest="pass_env", default="ES_PASSWORD", help="Env var name for password (default: ES_PASSWORD)")
     parser.add_argument("--index-a", default=DEFAULT_INDEX_A, help=f"Index A name (default: {DEFAULT_INDEX_A})")
     parser.add_argument("--index-b", default=DEFAULT_INDEX_B, help=f"Index B name (default: {DEFAULT_INDEX_B})")
     parser.add_argument("--index-c", default=DEFAULT_INDEX_C, help=f"Index C name (default: {DEFAULT_INDEX_C})")
     args = parser.parse_args()
 
-    es = Elasticsearch(args.es, basic_auth=(args.user, args.password) if args.password else None)
+    # 密码优先从环境变量读取，没有则交互式输入
+    import os
+    password = os.environ.get(args.pass_env, "")
+    if not password:
+        import getpass
+        password = getpass.getpass(f"ES password for {args.user}: ")
+
+    es = Elasticsearch(args.es, basic_auth=(args.user, password))
     if not es.ping():
         print(f"[ERROR] 无法连接 ES: {args.es}", file=sys.stderr)
         sys.exit(1)
