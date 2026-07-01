@@ -20,6 +20,7 @@ DEFAULT_ES = "http://localhost:9200"
 DEFAULT_INDEX_A = "alarm_ip_172.16.21.11"
 DEFAULT_INDEX_B = "alarm_ip_172.16.21.222"
 DEFAULT_INDEX_C = "ip_alarm_count"
+ES_PASSWORD = ""  # ← 填入密码
 
 
 def query_latest(es: Elasticsearch, index: str, rule_id: str) -> dict | None:
@@ -43,20 +44,12 @@ def main():
     parser.add_argument("--csv", required=True, help="CSV file path (columns: rule_id_a, rule_id_b)")
     parser.add_argument("--es", default=DEFAULT_ES, help=f"ES host (default: {DEFAULT_ES})")
     parser.add_argument("--user", default="elastic", help="ES username (default: elastic)")
-    parser.add_argument("--pass-env", dest="pass_env", default="ES_PASSWORD", help="Env var name for password (default: ES_PASSWORD)")
     parser.add_argument("--index-a", default=DEFAULT_INDEX_A, help=f"Index A name (default: {DEFAULT_INDEX_A})")
     parser.add_argument("--index-b", default=DEFAULT_INDEX_B, help=f"Index B name (default: {DEFAULT_INDEX_B})")
     parser.add_argument("--index-c", default=DEFAULT_INDEX_C, help=f"Index C name (default: {DEFAULT_INDEX_C})")
     args = parser.parse_args()
 
-    # 密码优先从环境变量读取，没有则交互式输入
-    import os
-    password = os.environ.get(args.pass_env, "")
-    if not password:
-        import getpass
-        password = getpass.getpass(f"ES password for {args.user}: ")
-
-    es = Elasticsearch(args.es, basic_auth=(args.user, password))
+    es = Elasticsearch(args.es, basic_auth=(args.user, ES_PASSWORD))
     if not es.ping():
         print(f"[ERROR] 无法连接 ES: {args.es}", file=sys.stderr)
         sys.exit(1)
