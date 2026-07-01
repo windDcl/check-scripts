@@ -10,6 +10,7 @@ Usage:
 """
 
 import csv
+import json
 import argparse
 import sys
 from datetime import datetime, timezone
@@ -132,11 +133,11 @@ def main():
 
     # 4. 批量写入 index C
     if docs:
-        actions = []
+        lines = []
         for i, d in enumerate(docs):
-            actions.append(f'{{"index": {{"_index": "{args.index_c}", "_id": "{i+1}"}}}}')
-            actions.append(f'{{"rule_id_a": "{d["rule_id_a"]}", "rule_id_b": "{d["rule_id_b"]}", "rule_name_a": "{d["rule_name_a"]}", "rule_name_b": "{d["rule_name_b"]}", "static_time": "{d["static_time"]}", "occur_time_a": "{d["occur_time_a"]}", "occur_time_b": "{d["occur_time_b"]}", "a_cnt": {d["a_cnt"]}, "b_cnt": {d["b_cnt"]}}}')
-        ndjson = "\n".join(actions) + "\n"
+            lines.append(json.dumps({"index": {"_index": args.index_c, "_id": str(i + 1)}}))
+            lines.append(json.dumps(d))
+        ndjson = "\n".join(lines) + "\n"
         resp = requests.post(
             f"{es_url}/_bulk",
             data=ndjson,
@@ -144,7 +145,9 @@ def main():
             auth=auth,
             timeout=30
         )
-        resp.raise_for_status()
+        result = resp.json()
+        if result.get("errors"):
+            print(f"[WARN] 部分写入失败: {result['items']}", file=sys.stderr)
         print(f"[INFO] 写入 {len(docs)} 条文档到 {args.index_c}")
 
     print(f"[DONE] 成功: {success}, 跳过: {skip}, 总计: {len(rows)}")
